@@ -65,7 +65,7 @@ int main(int argc, char ** argv) {
     const int port = settings->port;
     const char* protocol = settings->protocol;
 
-    const char* host_name = NULL;
+    const char* host_name = settings->host_name;
     if (settings->host_name == NULL) {
         static struct utsname name_info;
         uname(&name_info);
