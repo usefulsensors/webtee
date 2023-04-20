@@ -75,6 +75,7 @@ int main(int argc, char ** argv) {
     const char* service_url = build_url(protocol, host_name, port);
 
     print_text_as_qr_to_terminal(service_url);
+    fprintf(stderr, "%s\n", service_url);
 
   struct MHD_Daemon * d;
   d = MHD_start_daemon(MHD_USE_THREAD_PER_CONNECTION,
