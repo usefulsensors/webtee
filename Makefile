@@ -3,7 +3,9 @@ LDFLAGS := \
 
 SHARED_FLAGS := \
 	-O3 \
-	-I.
+	-I. \
+	-Ithird_party \
+	-Iutils
 
 CPPFLAGS := \
 	$(SHARED_FLAGS) \
@@ -24,6 +26,36 @@ QRCODEGEN_SRCS := \
 QRCODEGEN_OBJS := $(patsubst %.cc, $(OBJS_DIR)%.o, $(patsubst %.c, $(OBJS_DIR)%.o, $(QRCODEGEN_SRCS)))
 QRCODEGEN_LIB := $(LIBS_DIR)/libqrcodegen.a
 
+STRING_UTILS_SRCS := \
+	utils/string_utils.c
+STRING_UTILS_OBJS := $(patsubst %.cc, $(OBJS_DIR)%.o, $(patsubst %.c, $(OBJS_DIR)%.o, $(STRING_UTILS_SRCS)))
+STRING_UTILS_LIB := $(LIBS_DIR)/libstringutils.a
+
+STRING_UTILS_TEST_SRCS := \
+	utils/string_utils_test.c
+STRING_UTILS_TEST_OBJS := $(patsubst %.cc, $(OBJS_DIR)%.o, $(patsubst %.c, $(OBJS_DIR)%.o, $(STRING_UTILS_TEST_SRCS)))
+STRING_UTILS_TEST_BIN := $(BIN_DIR)/string_utils_test
+
+YARGS_SRCS := \
+	utils/yargs.c
+YARGS_OBJS := $(patsubst %.cc, $(OBJS_DIR)%.o, $(patsubst %.c, $(OBJS_DIR)%.o, $(YARGS_SRCS)))
+YARGS_LIB := $(LIBS_DIR)/libyargs.a
+
+YARGS_TEST_SRCS := \
+	utils/yargs_test.c
+YARGS_TEST_OBJS := $(patsubst %.cc, $(OBJS_DIR)%.o, $(patsubst %.c, $(OBJS_DIR)%.o, $(YARGS_TEST_SRCS)))
+YARGS_TEST_BIN := $(BIN_DIR)/yargs_test
+
+SETTINGS_SRCS := \
+	settings.c
+SETTINGS_OBJS := $(patsubst %.cc, $(OBJS_DIR)%.o, $(patsubst %.c, $(OBJS_DIR)%.o, $(SETTINGS_SRCS)))
+SETTINGS_LIB := $(LIBS_DIR)/libsettings.a
+
+SETTINGS_TEST_SRCS := \
+	settings_test.c
+SETTINGS_TEST_OBJS := $(patsubst %.cc, $(OBJS_DIR)%.o, $(patsubst %.c, $(OBJS_DIR)%.o, $(SETTINGS_TEST_SRCS)))
+SETTINGS_TEST_BIN := $(BIN_DIR)/settings_test
+
 WEBTEE_SRCS := \
 	main.c
 WEBTEE_OBJS := $(patsubst %.cc, $(OBJS_DIR)%.o, $(patsubst %.c, $(OBJS_DIR)%.o, $(WEBTEE_SRCS)))
@@ -37,17 +69,53 @@ $(OBJS_DIR)%.o: %.cc
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-all: $(WEBTEE_BIN)
+all: $(WEBTEE_BIN) $(STRING_UTILS_TEST_BIN) $(YARGS_TEST_BIN) $(SETTINGS_TEST_BIN)
+
+test: \
+  run_string_utils_test \
+  run_yargs_test \
+  run_settings_test
 
 $(QRCODEGEN_LIB): $(QRCODEGEN_OBJS)
 	@mkdir -p $(dir $@)
 	$(AR) $(ARFLAGS) $@ $^
 
-$(info $(QRCODEGEN_LIB))
-
-$(WEBTEE_BIN): $(WEBTEE_OBJS) $(QRCODEGEN_LIB)
+$(STRING_UTILS_LIB): $(STRING_UTILS_OBJS)
 	@mkdir -p $(dir $@)
-	$(CC) $(CPPFLAGS) $(WEBTEE_OBJS) -L$(LIBS_DIR) -lqrcodegen $(LDFLAGS) -o $@
+	$(AR) $(ARFLAGS) $@ $^
+
+$(STRING_UTILS_TEST_BIN): $(STRING_UTILS_TEST_OBJS) $(STRING_UTILS_LIB)
+	@mkdir -p $(dir $@)
+	$(CC) $(CPPFLAGS) $(STRING_UTILS_TEST_OBJS) -L$(LIBS_DIR) -lstringutils $(LDFLAGS) -o $@
+
+run_string_utils_test: $(STRING_UTILS_TEST_BIN)
+	$<
+
+$(YARGS_LIB): $(YARGS_OBJS)
+	@mkdir -p $(dir $@)
+	$(AR) $(ARFLAGS) $@ $^
+
+$(YARGS_TEST_BIN): $(YARGS_TEST_OBJS) $(YARGS_LIB) $(STRING_UTILS_LIB)
+	@mkdir -p $(dir $@)
+	$(CC) $(CPPFLAGS) $(YARGS_TEST_OBJS) -L$(LIBS_DIR) -lstringutils -lyargs $(LDFLAGS) -o $@
+
+run_yargs_test: $(YARGS_TEST_BIN)
+	$<
+
+$(SETTINGS_LIB): $(SETTINGS_OBJS)
+	@mkdir -p $(dir $@)
+	$(AR) $(ARFLAGS) $@ $^
+
+$(SETTINGS_TEST_BIN): $(SETTINGS_TEST_OBJS) $(YARGS_LIB) $(STRING_UTILS_LIB) $(SETTINGS_LIB)
+	@mkdir -p $(dir $@)
+	$(CC) $(CPPFLAGS) $(SETTINGS_TEST_OBJS) -L$(LIBS_DIR) -lyargs -lstringutils -lsettings $(LDFLAGS) -o $@
+
+run_settings_test: $(SETTINGS_TEST_BIN)
+	$<
+
+$(WEBTEE_BIN): $(WEBTEE_OBJS) $(QRCODEGEN_LIB) $(STRING_UTILS_LIB) $(YARGS_LIB) $(SETTINGS_LIB)
+	@mkdir -p $(dir $@)
+	$(CC) $(CPPFLAGS) $(WEBTEE_OBJS) -L$(LIBS_DIR) -lqrcodegen -lsettings -lstringutils -lyargs $(LDFLAGS) -o $@
 
 clean:
 	$(shell rm -rf $(GEN_DIR))

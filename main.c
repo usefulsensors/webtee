@@ -7,6 +7,8 @@
 #include <sys/utsname.h>
 
 #include "qrcodegen/qrcodegen.h"
+#include "settings.h"
+#include "utils/string_utils.h"
 
 #define PAGE "<html><head><title>libmicrohttpd demo</title>"\
              "</head><body>libmicrohttpd demo</body></html>"
@@ -51,26 +53,24 @@ ahc_echo(void * cls,
 
 // The result needs to be free()-ed after use.
 static char* build_url(const char* protocol, const char* domain, const int port) {
-    char* result = malloc(MAX_URL_LENGTH + 1);
-    snprintf(result, MAX_URL_LENGTH, "%s://%s:%d", protocol, domain, port);
-    // Just to be careful of non-standard snprintf() implementations.
-    result[MAX_URL_LENGTH] = 0;
-    return result;
+    return string_alloc_sprintf("%s://%s:%d", protocol, domain, port);
 }
 
 int main(int argc, char ** argv) {
-    if (argc != 2) {
-        printf("%s PORT\n",
-        argv[0]);
+    Settings* settings = settings_init_from_argv(argc, argv);
+    if (settings == NULL) {
         return 1;
     }
 
-    const int port = atoi(argv[1]);
-    const char* protocol = "http";
+    const int port = settings->port;
+    const char* protocol = settings->protocol;
 
-    struct utsname name_info;
-    uname(&name_info);
-    const char* host_name = name_info.nodename;
+    const char* host_name = NULL;
+    if (settings->host_name == NULL) {
+        static struct utsname name_info;
+        uname(&name_info);
+        host_name = name_info.nodename;
+    }
 
     const char* service_url = build_url(protocol, host_name, port);
 
@@ -88,5 +88,7 @@ int main(int argc, char ** argv) {
     return 1;
   (void) getc (stdin);
   MHD_stop_daemon(d);
+
+  settings_free(settings);
   return 0;
 }
