@@ -20,7 +20,7 @@ uint8_t* g_log_content_bytes = NULL;
 size_t g_log_content_byte_count = 0;
 pthread_mutex_t g_log_content_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-static enum MHD_Result
+static int
 ahc_echo(void * cls,
          struct MHD_Connection * connection,
          const char * url,
