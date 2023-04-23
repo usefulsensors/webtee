@@ -239,6 +239,69 @@ void test_string_list_add() {
   string_list_free(list, list_length);
 }
 
+void test_string_length_to_null_terminated() {
+  const size_t length_string_byte_count = 11;
+  const char length_string[] = {
+    'H', 'e', 'l', 'l', 'o', ' ', 'W', 'o', 'r', 'l', 'd',
+  };
+  char* null_terminated_string = string_length_to_null_terminated(length_string, length_string_byte_count);
+  TEST_STREQ("Hello World", null_terminated_string);
+  free(null_terminated_string);
+}
+
+void test_string_from_range() {
+  char* result0 = string_from_range("Hello World!", 0, 5);
+  TEST_STREQ("Hello", result0);
+  free(result0);
+
+  char* result1 = string_from_range("Hello World!", 6, 11);
+  TEST_STREQ("World", result1);
+  free(result1);
+
+  char* result2 = string_from_range("Hello World!", -1, 5);
+  TEST_STREQ("Hello", result2);
+  free(result2);
+
+  char* result3 = string_from_range("Hello World!", 6, 1000);
+  TEST_STREQ("World!", result3);
+  free(result3);
+
+  char* result4 = string_from_range("Hello World!", -100, 0);
+  TEST_STREQ("", result4);
+  free(result4);
+
+  char* result5 = string_from_range("Hello World!", 5, 3);
+  TEST_STREQ("", result5);
+  free(result5);
+
+  char* result6 = string_from_range("Hello World!", -100, -200);
+  TEST_STREQ("", result6);
+  free(result6);
+}
+
+void test_string_to_int32() {
+  int32_t result0;
+  TEST_CHECK(string_to_int32("123", &result0));
+  TEST_INTEQ(123, result0);
+
+  int32_t result1;
+  TEST_CHECK(string_to_int32("123456", &result1));
+  TEST_INTEQ(123456, result1);
+
+  int32_t result2;
+  TEST_CHECK(string_to_int32("-123456", &result2));
+  TEST_INTEQ(-123456, result2);
+
+  int32_t result3;
+  TEST_CHECK(!string_to_int32("-123456.0", &result3));
+
+  int32_t result4;
+  TEST_CHECK(!string_to_int32("foobarbaz", &result4));
+
+  int32_t result5;
+  TEST_CHECK(!string_to_int32("1234foobarbaz", &result5));
+}
+
 TEST_LIST = {
   {"string_starts_with", test_string_starts_with},
   {"string_ends_with", test_string_ends_with},
@@ -250,5 +313,8 @@ TEST_LIST = {
   {"string_join", test_string_join},
   {"string_list_filter", test_string_list_filter},
   {"string_list_add", test_string_list_add},
+  {"string_length_to_null_terminated", test_string_length_to_null_terminated},
+  {"string_from_range", test_string_from_range},
+  {"string_to_int32", test_string_to_int32},
   {NULL, NULL},
 };

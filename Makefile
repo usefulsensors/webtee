@@ -9,7 +9,7 @@ SHARED_FLAGS := \
 
 CPPFLAGS := \
 	$(SHARED_FLAGS) \
-	-std=c99 \
+	-std=gnu99 \
 
 CXXFLAGS := \
 	$(SHARED_FLAGS)
@@ -55,6 +55,16 @@ SETTINGS_TEST_SRCS := \
 	settings_test.c
 SETTINGS_TEST_OBJS := $(patsubst %.cc, $(OBJS_DIR)%.o, $(patsubst %.c, $(OBJS_DIR)%.o, $(SETTINGS_TEST_SRCS)))
 SETTINGS_TEST_BIN := $(BIN_DIR)/settings_test
+
+FILE_UTILS_SRCS := \
+	utils/file_utils.c
+FILE_UTILS_OBJS := $(patsubst %.cc, $(OBJS_DIR)%.o, $(patsubst %.c, $(OBJS_DIR)%.o, $(FILE_UTILS_SRCS)))
+FILE_UTILS_LIB := $(LIBS_DIR)/libfileutils.a
+
+FILE_UTILS_TEST_SRCS := \
+	utils/file_utils_test.c
+FILE_UTILS_TEST_OBJS := $(patsubst %.cc, $(OBJS_DIR)%.o, $(patsubst %.c, $(OBJS_DIR)%.o, $(FILE_UTILS_TEST_SRCS)))
+FILE_UTILS_TEST_BIN := $(BIN_DIR)/file_utils_test
 
 WEBTEE_SRCS := \
 	main.c
@@ -113,9 +123,20 @@ $(SETTINGS_TEST_BIN): $(SETTINGS_TEST_OBJS) $(YARGS_LIB) $(STRING_UTILS_LIB) $(S
 run_settings_test: $(SETTINGS_TEST_BIN)
 	$<
 
-$(WEBTEE_BIN): $(WEBTEE_OBJS) $(QRCODEGEN_LIB) $(STRING_UTILS_LIB) $(YARGS_LIB) $(SETTINGS_LIB)
+$(FILE_UTILS_LIB): $(FILE_UTILS_OBJS)
 	@mkdir -p $(dir $@)
-	$(CC) $(CPPFLAGS) $(WEBTEE_OBJS) -L$(LIBS_DIR) -lqrcodegen -lsettings -lstringutils -lyargs $(LDFLAGS) -o $@
+	$(AR) $(ARFLAGS) $@ $^
+
+$(FILE_UTILS_TEST_BIN): $(FILE_UTILS_TEST_OBJS) $(YARGS_LIB) $(STRING_UTILS_LIB) $(FILE_UTILS_LIB)
+	@mkdir -p $(dir $@)
+	$(CC) $(CPPFLAGS) $(FILE_UTILS_TEST_OBJS) -L$(LIBS_DIR) -lstringutils -lfileutils $(LDFLAGS) -o $@
+
+run_file_utils_test: $(FILE_UTILS_TEST_BIN)
+	$<
+
+$(WEBTEE_BIN): $(WEBTEE_OBJS) $(QRCODEGEN_LIB) $(STRING_UTILS_LIB) $(YARGS_LIB) $(SETTINGS_LIB) $(FILE_UTILS_LIB)
+	@mkdir -p $(dir $@)
+	$(CC) $(CPPFLAGS) $(WEBTEE_OBJS) -L$(LIBS_DIR) -lqrcodegen -lsettings -lstringutils -lyargs -lfileutils $(LDFLAGS) -o $@
 
 clean:
 	$(shell rm -rf $(GEN_DIR))

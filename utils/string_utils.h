@@ -2,12 +2,14 @@
 #define INCLUDE_UTIL_STRING_UTILS_H
 
 #include <stdbool.h>
+#include <stdlib.h>
+#include <stdint.h>
 
 #ifdef __CPLUSPLUS
 extern "C" {
 #endif  // __CPLUSPLUS
 
-  bool string_starts_with(const char* string, const char* ending);
+  bool string_starts_with(const char* string, const char* start);
   bool string_ends_with(const char* string, const char* ending);
 
   // Returns a copy of the input. Caller owns and has to free() the result.
@@ -44,6 +46,15 @@ extern "C" {
   void string_list_filter(const char** in_list, int in_list_length,
     string_list_filter_funcptr should_keep_func, void* cookie, char*** out_list,
     int* out_list_length);
+
+  // Takes a byte array of a given length, and returns a zero-terminated copy.
+  char* string_length_to_null_terminated(const char* input, const size_t input_byte_count);
+
+  // Returns the substring from character start_index, to end_index-1.
+  char* string_from_range(const char* input, int start_index, int end_index);
+
+  // Wrapper for integer parsing that returns true if value is understood.
+  bool string_to_int32(const char* input, int32_t* output);
 
 #ifdef __CPLUSPLUS
 }

@@ -6,6 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "trace.h"
+
 bool string_starts_with(const char* string, const char* start) {
   return (strncmp(string, start, strlen(start)) == 0);
 }
@@ -143,5 +145,58 @@ void string_list_filter(const char** in_list, int in_list_length,
       *out_list = realloc(*out_list, sizeof(const char*) * (*out_list_length));
       (*out_list)[(*out_list_length) - 1] = string_duplicate(in);
     }
+  }
+}
+
+char* string_length_to_null_terminated(const char* input, const size_t input_byte_count) {
+  char* output = malloc(input_byte_count + 1);
+  memcpy(output, input, input_byte_count);
+  output[input_byte_count] = 0;
+  return output;  
+}
+
+char* string_from_range(const char* input, int start_index, int end_index) {
+  if (input == NULL) {
+    return string_duplicate("");
+  }
+
+  const int input_length = strlen(input);
+  int gated_end_index;
+  if (end_index > input_length) {
+    gated_end_index = input_length;
+  } else if (end_index < 0) {
+    gated_end_index = 0;
+  } else {
+    gated_end_index = end_index;
+  }
+  int gated_start_index;
+  if (start_index > input_length) {
+    gated_start_index = input_length;
+  } else if (start_index < 0) {
+    gated_start_index = 0;
+  } else {
+    gated_start_index = start_index;
+  }
+
+  const int output_length = (gated_end_index - gated_start_index);
+  if (output_length <= 0) {
+    return string_duplicate("");
+  }
+  char* output = malloc(output_length + 1);
+  memcpy(output, input + gated_start_index, output_length);
+  output[output_length] = 0;
+
+  return output;
+}
+
+bool string_to_int32(const char* input, int32_t* output) {
+  char* conversion_end = NULL;
+  *output = strtol(input, &conversion_end, 10);
+  const int converted_length = (conversion_end - input);
+  if (converted_length != strlen(input)) {
+    return false;
+  }
+  else {
+    return true;
   }
 }

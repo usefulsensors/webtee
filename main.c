@@ -8,9 +8,11 @@
 #include <unistd.h>
 #include <sys/utsname.h>
 
+#include "file_utils.h"
 #include "qrcodegen/qrcodegen.h"
 #include "settings.h"
-#include "utils/string_utils.h"
+#include "string_utils.h"
+#include "trace.h"
 
 #define READ_BUFFER_BYTE_COUNT (1024)
 
@@ -59,7 +61,96 @@ static char* build_url(const char* protocol, const char* domain, const int port)
     return string_alloc_sprintf("%s://%s:%d", protocol, domain, port);
 }
 
-static bool read_stdin() {
+// The result needs to be free()-ed after use.
+static char* get_command_line(const char* process_id) {
+    char* process_info_dir = string_alloc_sprintf("/proc/%s", process_id);
+    char* command_line_path = string_alloc_sprintf("%s/cmdline", process_info_dir);
+    TRACE_STR(command_line_path);
+    char* current_command_line_bytes;
+    size_t current_command_line_byte_count;
+    const bool command_line_status = file_read(command_line_path, &current_command_line_bytes, &current_command_line_byte_count);
+    if (!command_line_status) {
+        fprintf(stderr, "Error reading command line for '%s'.\n", command_line_path);
+        free(process_info_dir);
+        free(command_line_path);
+        return NULL;
+    }
+    TRACE_BYTES(current_command_line_bytes, current_command_line_byte_count);
+    free(command_line_path);
+
+    // Replace null characters separating commands with spaces.
+    for (int i = 0; i < current_command_line_byte_count; ++i) {
+        if (current_command_line_bytes[i] == 0) {
+            current_command_line_bytes[i] = ' ';
+        }
+    }
+    char* current_command_line_string = string_length_to_null_terminated(
+        current_command_line_bytes, current_command_line_byte_count);
+    free(current_command_line_bytes);
+
+    TRACE_STR(current_command_line_string);
+
+    char* input_link_path = string_alloc_sprintf("%s/fd/0", process_info_dir);
+    free(process_info_dir);
+    char* input_link_result_bytes = malloc(PATH_MAX);
+    const int input_link_result_byte_count = readlink(
+        input_link_path, input_link_result_bytes, PATH_MAX);
+    free(input_link_path);
+    if (input_link_result_byte_count == -1) {
+        fprintf(stderr, "Error reading input information for '%s'.\n", input_link_path);
+        free(input_link_result_bytes);
+        free(current_command_line_string);
+        return NULL;
+    }
+
+    char* input_link_result_string = string_length_to_null_terminated(
+        input_link_result_bytes, input_link_result_byte_count);
+    free(input_link_result_bytes);
+
+    TRACE_STR(input_link_result_string);
+
+    const char* pipe_prefix = "pipe:[";
+    const char* pipe_suffix = "]";
+    if (string_starts_with(input_link_result_string, pipe_prefix)) {
+        const int process_number_start = strlen(pipe_prefix);
+        const int process_number_end = strlen(input_link_result_string) - strlen(pipe_suffix);
+        char* process_number_string = string_from_range(input_link_result_string, process_number_start, process_number_end);
+        uint32_t process_number;
+        const bool is_process_number = string_to_int32(process_number_string, &process_number);
+        if (is_process_number) {
+            char* previous_command_line_string = get_command_line(process_number_string);
+            if (previous_command_line_string != NULL) {
+                char* new_command_line_string = string_alloc_sprintf("%s | %s",
+                    previous_command_line_string, current_command_line_string);
+                free(current_command_line_string);
+                current_command_line_string = new_command_line_string;
+            }
+        }
+        free(process_number_string);
+    }
+    free(input_link_result_string);
+
+    TRACE_STR(current_command_line_string);
+
+    return current_command_line_string;
+}
+
+static void append_to_log_contents(uint8_t* buffer_bytes, size_t buffer_byte_count) {
+    pthread_mutex_lock(&g_log_content_mutex);
+
+    const size_t new_log_contents_byte_count = (g_log_content_byte_count + buffer_byte_count);
+    uint8_t* new_log_content_bytes = realloc(g_log_content_bytes, new_log_contents_byte_count);
+    uint8_t* old_log_content_bytes_end = (new_log_content_bytes + g_log_content_byte_count);
+    // Append the new data to the end of the buffer.
+    memcpy(old_log_content_bytes_end, buffer_bytes, buffer_byte_count);
+
+    g_log_content_bytes = new_log_content_bytes;
+    g_log_content_byte_count = new_log_contents_byte_count;
+
+    pthread_mutex_unlock(&g_log_content_mutex);
+}
+
+static bool mirror_stdin() {
  
     uint8_t* read_buffer_bytes = malloc(READ_BUFFER_BYTE_COUNT);
 
@@ -93,19 +184,7 @@ static bool read_stdin() {
                 break;
             }
 
-            pthread_mutex_lock(&g_log_content_mutex);
-
-            const size_t new_log_contents_byte_count = (g_log_content_byte_count + bytes_read);
-            uint8_t* new_log_content_bytes = realloc(g_log_content_bytes, new_log_contents_byte_count);
-            uint8_t* old_log_content_bytes_end = (new_log_content_bytes + g_log_content_byte_count);
-            // Append the new data to the end of the buffer.
-            memcpy(old_log_content_bytes_end, read_buffer_bytes, bytes_read);
-
-            g_log_content_bytes = new_log_content_bytes;
-            g_log_content_byte_count = new_log_contents_byte_count;
-
-            pthread_mutex_unlock(&g_log_content_mutex);
-
+            append_to_log_contents(read_buffer_bytes, bytes_read);
         }
     }
     free(read_buffer_bytes);
@@ -129,10 +208,20 @@ int main(int argc, char ** argv) {
         host_name = name_info.nodename;
     }
 
-    const char* service_url = build_url(protocol, host_name, port);
-
+    char* service_url = build_url(protocol, host_name, port);
     print_text_as_qr_to_terminal(service_url);
     fprintf(stderr, "%s\n", service_url);
+    free(service_url);
+
+    // I'd like to include the pipe input command in the log, but this approach
+    // doesn't work, so commenting out for now.
+    // char* my_pid_string = string_alloc_sprintf("%d", getpid());
+    // char* command_line = get_command_line(my_pid_string);
+    // free(command_line);
+    // fprintf(stderr, "%s\n", command_line);
+    // append_to_log_contents(command_line, strlen(command_line));
+    // append_to_log_contents("\n", 1);
+    // free(command_line);
 
     struct MHD_Daemon * d = MHD_start_daemon(
         MHD_USE_THREAD_PER_CONNECTION,
@@ -148,7 +237,7 @@ int main(int argc, char ** argv) {
         return 1;
     }
 
-    read_stdin();
+    mirror_stdin();
 
     MHD_stop_daemon(d);
 
