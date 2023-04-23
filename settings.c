@@ -13,6 +13,7 @@ static void set_defaults(Settings* settings) {
   settings->host_name = NULL;
   settings->port = 9923;
   settings->protocol = "http";
+  settings->use_external_ip = false;
 }
 
 Settings* settings_init_from_argv(int argc, char** argv) {
@@ -29,6 +30,8 @@ Settings* settings_init_from_argv(int argc, char** argv) {
       "Port number to use for hosting URL. If none, defaults to 9923."),
     YARGS_STRING("protocol", "r", &settings->protocol, 
       "Protocol to use for the hosting URL. Default is 'http'."),
+    YARGS_BOOL("use_external_ip", "e", &settings->use_external_ip,
+      "Use the `dig` command to attempt to find this machine's external IP for the hosting URL.")
   };
   const int flags_length = sizeof(flags) / sizeof(flags[0]);
 

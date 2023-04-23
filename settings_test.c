@@ -32,6 +32,7 @@ void test_settings_init_from_argv() {
     "--host_name", "foo",
     "--port", "2377",
     "--protocol", "https",
+    "--use_external_ip",
   };
   const int argc3 = sizeof(argv3) / sizeof(argv3[0]);
   Settings* settings3 = settings_init_from_argv(argc3, argv3);
@@ -39,12 +40,14 @@ void test_settings_init_from_argv() {
   TEST_STREQ(settings3->host_name, "foo");
   TEST_INTEQ(settings3->port, 2377);
   TEST_STREQ(settings3->protocol, "https");
+  TEST_CHECK(settings3->use_external_ip);
   settings_free(settings3);
 
   char* argv4[] = { "program",
     "-h", "foo",
     "-p", "2377",
     "-r", "https",
+    "-e",
   };
   const int argc4 = sizeof(argv4) / sizeof(argv4[0]);
   Settings* settings4 = settings_init_from_argv(argc4, argv4);
@@ -52,6 +55,7 @@ void test_settings_init_from_argv() {
   TEST_STREQ(settings4->host_name, "foo");
   TEST_INTEQ(settings4->port, 2377);
   TEST_STREQ(settings4->protocol, "https");
+  TEST_CHECK(settings3->use_external_ip);
   settings_free(settings4);
 }
 

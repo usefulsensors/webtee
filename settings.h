@@ -13,6 +13,7 @@ typedef struct SettingsStruct {
   const char *host_name;
   int port;
   const char* protocol;
+  bool use_external_ip;
 } Settings;
 
 Settings *settings_init_from_argv(int argc, char **argv);

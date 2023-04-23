@@ -203,9 +203,33 @@ int main(int argc, char ** argv) {
 
     const char* host_name = settings->host_name;
     if (settings->host_name == NULL) {
-        static struct utsname name_info;
-        uname(&name_info);
-        host_name = name_info.nodename;
+        if (settings->use_external_ip) {
+            // See https://unix.stackexchange.com/questions/22615/how-can-i-get-my-external-ip-address-in-a-shell-script
+            const char* dig_command = "dig @ns1.google.com TXT o-o.myaddr.l.google.com +short";
+            FILE *dig_fp = popen(dig_command, "r");
+            if (dig_fp == NULL) {
+                fprintf(stderr, "Tried to find external IP, but dig command failed.\n");
+                return 1;
+            }
+            const size_t ip_line_max_byte_count = 1024;
+            char* ip_line_bytes = malloc(ip_line_max_byte_count);
+            const size_t read_byte_count = fread(ip_line_bytes, 1, ip_line_max_byte_count, dig_fp);
+            if (read_byte_count == 0) {
+                fprintf(stderr, "Tried to find external IP, but dig command returned nothing.\n");
+                return 1;
+            }
+            char* ip_line_string = string_length_to_null_terminated(ip_line_bytes, read_byte_count);
+            free(ip_line_bytes);
+            char* unquoted_string = string_from_range(ip_line_string, 1, strlen(ip_line_string) - 2);
+            free(ip_line_string);
+            host_name = unquoted_string;
+            pclose(dig_fp);
+        }
+        if (host_name == NULL) {
+            static struct utsname name_info;
+            uname(&name_info);
+            host_name = name_info.nodename;
+        }
     }
 
     char* service_url = build_url(protocol, host_name, port);
